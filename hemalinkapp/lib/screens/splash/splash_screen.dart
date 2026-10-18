@@ -4,7 +4,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../admin/admin_dashboard_screen.dart';
 import '../auth/login_screen.dart';
-import '../main/main_shell.dart';
+import '../../screens/main/main_shell.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -28,10 +28,9 @@ class _SplashScreenState extends State<SplashScreen> {
     final Widget next = c.isAdmin
         ? const AdminDashboardScreen()
         : c.isLoggedIn
-            ? const MainShell()
-            : const LoginScreen();
-    Navigator.pushReplacement(
-        context, MaterialPageRoute(builder: (_) => next));
+        ? const MainShell()
+        : const LoginScreen();
+    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => next));
   }
 
   @override
@@ -55,14 +54,19 @@ class _SplashScreenState extends State<SplashScreen> {
               child: Icon(Icons.water_drop, size: 52, color: AppColors.red),
             ),
             SizedBox(height: 16),
-            Text(AppConstants.appName,
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold)),
+            Text(
+              AppConstants.appName,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             SizedBox(height: 4),
-            Text(AppConstants.tagline,
-                style: TextStyle(color: Colors.white70, fontSize: 12)),
+            Text(
+              AppConstants.tagline,
+              style: TextStyle(color: Colors.white70, fontSize: 12),
+            ),
             SizedBox(height: 32),
             CircularProgressIndicator(color: Colors.white),
           ],

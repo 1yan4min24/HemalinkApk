@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../controllers/app_controller.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
-import '../main/main_shell.dart';
+import '../../screens/main/main_shell.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -26,7 +26,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
-    for (final c in [_name, _username, _phone, _pass, _pass2, _weight, _height, _city]) {
+    for (final c in [
+      _name,
+      _username,
+      _phone,
+      _pass,
+      _pass2,
+      _weight,
+      _height,
+      _city,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -57,8 +66,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!mounted) return;
     setState(() => _loading = false);
     if (error != null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
       return;
     }
     Navigator.pushAndRemoveUntil(
@@ -73,8 +83,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Daftar Akun',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Daftar Akun',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.white,
         foregroundColor: AppColors.slate800,
         elevation: 0,
@@ -96,7 +108,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 controller: _username,
                 autocorrect: false,
                 decoration: const InputDecoration(
-                    labelText: 'Username', helperText: 'Huruf kecil, angka, _ atau .'),
+                  labelText: 'Username',
+                  helperText: 'Huruf kecil, angka, _ atau .',
+                ),
                 validator: (v) {
                   final u = (v ?? '').trim().toLowerCase();
                   if (u.length < 4) return 'Minimal 4 karakter';
@@ -110,9 +124,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
               TextFormField(
                 controller: _phone,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'No. HP / WhatsApp'),
-                validator: (v) =>
-                    (v == null || v.trim().length < 9) ? 'Nomor tidak valid' : null,
+                decoration: const InputDecoration(
+                  labelText: 'No. HP / WhatsApp',
+                ),
+                validator: (v) => (v == null || v.trim().length < 9)
+                    ? 'Nomor tidak valid'
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -126,9 +143,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               TextFormField(
                 controller: _pass2,
                 obscureText: true,
-                decoration:
-                    const InputDecoration(labelText: 'Ulangi Password'),
-                validator: (v) => v != _pass.text ? 'Password tidak sama' : null,
+                decoration: const InputDecoration(labelText: 'Ulangi Password'),
+                validator: (v) =>
+                    v != _pass.text ? 'Password tidak sama' : null,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
@@ -148,8 +165,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     child: TextFormField(
                       controller: _weight,
                       keyboardType: TextInputType.number,
-                      decoration:
-                          const InputDecoration(labelText: 'Berat (kg)'),
+                      decoration: const InputDecoration(
+                        labelText: 'Berat (kg)',
+                      ),
                       validator: (v) => _intRange(v, 20, 250, 'Berat'),
                     ),
                   ),
@@ -158,8 +176,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     child: TextFormField(
                       controller: _height,
                       keyboardType: TextInputType.number,
-                      decoration:
-                          const InputDecoration(labelText: 'Tinggi (cm)'),
+                      decoration: const InputDecoration(
+                        labelText: 'Tinggi (cm)',
+                      ),
                       validator: (v) => _intRange(v, 100, 250, 'Tinggi'),
                     ),
                   ),
@@ -181,7 +200,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white))
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
                       : const Text('Daftar & Masuk'),
                 ),
               ),

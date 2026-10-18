@@ -3,7 +3,7 @@ import '../../controllers/app_controller.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../admin/admin_dashboard_screen.dart';
-import '../main/main_shell.dart';
+import '../../screens/main/main_shell.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -31,20 +31,25 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
-    final error = await AppController.instance
-        .login(_userCtrl.text, _passCtrl.text, asAdmin: _asAdmin);
+    final error = await AppController.instance.login(
+      _userCtrl.text,
+      _passCtrl.text,
+      asAdmin: _asAdmin,
+    );
     if (!mounted) return;
     setState(() => _loading = false);
     if (error != null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
       return;
     }
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-          builder: (_) =>
-              _asAdmin ? const AdminDashboardScreen() : const MainShell()),
+        builder: (_) =>
+            _asAdmin ? const AdminDashboardScreen() : const MainShell(),
+      ),
     );
   }
 
@@ -63,15 +68,21 @@ class _LoginScreenState extends State<LoginScreen> {
                   const CircleAvatar(
                     radius: 32,
                     backgroundColor: AppColors.lightRed,
-                    child: Icon(Icons.water_drop, size: 34, color: AppColors.red),
+                    child: Icon(
+                      Icons.water_drop,
+                      size: 34,
+                      color: AppColors.red,
+                    ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(AppConstants.appName,
-                      style:
-                          TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                  const Text(AppConstants.tagline,
-                      style:
-                          TextStyle(fontSize: 12, color: AppColors.slate500)),
+                  const Text(
+                    AppConstants.appName,
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                  const Text(
+                    AppConstants.tagline,
+                    style: TextStyle(fontSize: 12, color: AppColors.slate500),
+                  ),
                   const SizedBox(height: 24),
                   _roleSelector(),
                   const SizedBox(height: 20),
@@ -96,8 +107,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       prefixIcon: const Icon(Icons.lock_outline, size: 18),
                       suffixIcon: IconButton(
                         icon: Icon(
-                            _obscure ? Icons.visibility_off : Icons.visibility,
-                            size: 18),
+                          _obscure ? Icons.visibility_off : Icons.visibility,
+                          size: 18,
+                        ),
                         onPressed: () => setState(() => _obscure = !_obscure),
                       ),
                     ),
@@ -114,7 +126,10 @@ class _LoginScreenState extends State<LoginScreen> {
                               width: 18,
                               height: 18,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white))
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
                           : const Text('Masuk'),
                     ),
                   ),
@@ -123,20 +138,28 @@ class _LoginScreenState extends State<LoginScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text('Belum punya akun? ',
-                            style: TextStyle(
-                                fontSize: 12, color: AppColors.slate500)),
+                        const Text(
+                          'Belum punya akun? ',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.slate500,
+                          ),
+                        ),
                         GestureDetector(
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                                builder: (_) => const RegisterScreen()),
+                              builder: (_) => const RegisterScreen(),
+                            ),
                           ),
-                          child: const Text('Daftar sekarang',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.red,
-                                  fontWeight: FontWeight.w600)),
+                          child: const Text(
+                            'Daftar sekarang',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.red,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -167,11 +190,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   ? [const BoxShadow(color: Colors.black12, blurRadius: 3)]
                   : null,
             ),
-            child: Text(label,
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: active ? AppColors.red : AppColors.slate500)),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: active ? AppColors.red : AppColors.slate500,
+              ),
+            ),
           ),
         ),
       );
@@ -180,11 +206,15 @@ class _LoginScreenState extends State<LoginScreen> {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-          color: AppColors.slate100, borderRadius: BorderRadius.circular(12)),
-      child: Row(children: [
-        tab('User (Pendonor/Pemohon)', false),
-        tab('Admin PMI', true),
-      ]),
+        color: AppColors.slate100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          tab('User (Pendonor/Pemohon)', false),
+          tab('Admin PMI', true),
+        ],
+      ),
     );
   }
 }
