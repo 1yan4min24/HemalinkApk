@@ -3,7 +3,7 @@ import '../../controllers/app_controller.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../admin/admin_dashboard_screen.dart';
-import '../../screens/main/main_shell.dart';
+import '../main/main_sheel.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {

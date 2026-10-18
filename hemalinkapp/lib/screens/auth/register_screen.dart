@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../controllers/app_controller.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
-import '../../screens/main/main_shell.dart';
+import '../main/main_sheel.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});

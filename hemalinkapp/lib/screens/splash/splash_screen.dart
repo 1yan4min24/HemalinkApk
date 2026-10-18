@@ -4,7 +4,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../admin/admin_dashboard_screen.dart';
 import '../auth/login_screen.dart';
-import '../../screens/main/main_shell.dart';
+import '../main/main_sheel.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -28,8 +28,8 @@ class _SplashScreenState extends State<SplashScreen> {
     final Widget next = c.isAdmin
         ? const AdminDashboardScreen()
         : c.isLoggedIn
-        ? const MainShell()
-        : const LoginScreen();
+            ? const MainShell()
+            : const LoginScreen();
     Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => next));
   }
 
