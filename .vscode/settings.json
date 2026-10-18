@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "D:/HemalinkApp/mobile/hemalinkapp/windows"
+    "cmake.sourceDirectory": "D:/HemalinkApp/mobile/hemalinkapp/windows",
+    "java.configuration.updateBuildConfiguration": "interactive"
 }
