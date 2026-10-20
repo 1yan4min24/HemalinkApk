@@ -12,8 +12,19 @@ class RequestCard extends StatelessWidget {
   const RequestCard({super.key, required this.request});
 
   Future<void> _openChat(BuildContext context) async {
+    final me = AppController.instance.currentUser;
+    if (me == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Silakan login terlebih dahulu')),
+        );
+      }
+      return;
+    }
+
     final thread = await AppController.instance.startChat(request);
     if (!context.mounted) return;
+
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => ChatDetailScreen(threadId: thread.id)),
@@ -21,6 +32,7 @@ class RequestCard extends StatelessWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context) async {
+    // ✅ Simpan context sebelum dipakai
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -38,16 +50,28 @@ class RequestCard extends StatelessWidget {
         ],
       ),
     );
-    if (ok == true) await AppController.instance.deleteRequest(request.id);
+
+    if (ok == true && context.mounted) {
+      await AppController.instance.deleteRequest(request.id);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final me = AppController.instance.currentUser!;
+    final me = AppController.instance.currentUser;
+
+    if (me == null) {
+      return _buildUnauthenticatedView();
+    }
+
     final isMine = request.requesterId == me.id;
     final compatible =
         !isMine && BloodUtils.canDonate(me.bloodType, request.bloodType);
 
+    return _buildCardView(context, isMine, compatible);
+  }
+
+  Widget _buildCardView(BuildContext context, bool isMine, bool compatible) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -156,31 +180,107 @@ class RequestCard extends StatelessWidget {
     );
   }
 
+  Widget _buildUnauthenticatedView() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.slate100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              BloodBadge(label: request.bloodType),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      request.requesterName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    Text(
+                      Fmt.timeAgo(request.createdAt),
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: AppColors.slate400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _pill(
+                'Butuh ${request.bags} Kantong',
+                const Color(0xFFFEE2E2),
+                AppColors.red,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              _pill(
+                'Golongan ${request.bloodType}',
+                AppColors.lightRed,
+                AppColors.red,
+              ),
+              request.verified
+                  ? _pill(
+                      'Terverifikasi PMI',
+                      const Color(0xFFDCFCE7),
+                      const Color(0xFF15803D),
+                    )
+                  : _pill(
+                      'Menunggu verifikasi PMI',
+                      const Color(0xFFFEF3C7),
+                      const Color(0xFFB45309),
+                    ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _line('Alasan', request.reason),
+          const SizedBox(height: 4),
+          _line('Lokasi RS', request.hospital),
+        ],
+      ),
+    );
+  }
+
   Widget _pill(String t, Color bg, Color fg) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-    decoration: BoxDecoration(
-      color: bg,
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Text(
-      t,
-      style: TextStyle(color: fg, fontSize: 10, fontWeight: FontWeight.bold),
-    ),
-  );
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          t,
+          style:
+              TextStyle(color: fg, fontSize: 10, fontWeight: FontWeight.bold),
+        ),
+      );
 
   Widget _line(String k, String v) => RichText(
-    text: TextSpan(
-      style: const TextStyle(fontSize: 12, color: AppColors.slate600),
-      children: [
-        TextSpan(
-          text: '$k: ',
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            color: AppColors.slate700,
-          ),
+        text: TextSpan(
+          style: const TextStyle(fontSize: 12, color: AppColors.slate600),
+          children: [
+            TextSpan(
+              text: '$k: ',
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: AppColors.slate700,
+              ),
+            ),
+            TextSpan(text: v),
+          ],
         ),
-        TextSpan(text: v),
-      ],
-    ),
-  );
+      );
 }
