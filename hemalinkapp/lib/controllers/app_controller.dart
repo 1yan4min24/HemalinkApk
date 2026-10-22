@@ -25,7 +25,9 @@ class AppController extends ChangeNotifier {
   List<BloodRequest> _requests = [];
   List<ChatThread> _threads = [];
   List<DonorHistory> _histories = [];
-  final Map<String, int> stock = {for (final t in AppConstants.bloodTypes) t: 0};
+  final Map<String, int> stock = {
+    for (final t in AppConstants.bloodTypes) t: 0
+  };
   DateTime? stockUpdatedAt;
 
   UserAccount? currentUser;
@@ -83,7 +85,8 @@ class AppController extends ChangeNotifier {
     required String city,
   }) async {
     final u = username.trim().toLowerCase();
-    if (u == AppConstants.adminUsername || _accounts.any((a) => a.username == u)) {
+    if (u == AppConstants.adminUsername ||
+        _accounts.any((a) => a.username == u)) {
       return 'Username sudah dipakai, silakan pilih yang lain.';
     }
     final acc = UserAccount(
@@ -135,6 +138,33 @@ class AppController extends ChangeNotifier {
     currentUser = null;
     isAdmin = false;
     await _store.remove('session');
+    notifyListeners();
+  }
+
+  // ✅ Set user dari hasil login API (supaya layar beranda dll bisa baca data)
+  void setCurrentUserFromApi({
+    required String id,
+    required String name,
+    required String username,
+    required String phone,
+    required String bloodType,
+    required String city,
+    required int weight,
+    required int height,
+    required bool isAdmin,
+  }) {
+    currentUser = UserAccount(
+      id: id,
+      name: name,
+      username: username,
+      passwordHash: '',
+      phone: phone,
+      bloodType: bloodType,
+      city: city,
+      weight: weight,
+      height: height,
+    );
+    this.isAdmin = isAdmin;
     notifyListeners();
   }
 
@@ -241,8 +271,8 @@ class AppController extends ChangeNotifier {
   /// Membuka percakapan untuk sebuah permohonan (membuat baru bila belum ada).
   Future<ChatThread> startChat(BloodRequest r) async {
     final me = currentUser!;
-    final i = _threads
-        .indexWhere((t) => t.requestId == r.id && t.donorId == me.id);
+    final i =
+        _threads.indexWhere((t) => t.requestId == r.id && t.donorId == me.id);
     if (i >= 0) return _threads[i];
     final t = ChatThread(
       id: _newId(),
@@ -325,11 +355,13 @@ class AppController extends ChangeNotifier {
     stock.addAll(newStock);
     stockUpdatedAt = DateTime.now();
     await _store.writeMap('stock', stock);
-    await _store.writeString('stock_updated', stockUpdatedAt!.toIso8601String());
+    await _store.writeString(
+        'stock_updated', stockUpdatedAt!.toIso8601String());
     notifyListeners();
   }
 
   int get totalUsers => _accounts.length;
   int get totalBagsRecorded => _histories.fold(0, (s, h) => s + h.bags);
-  int get totalDonorsWithHistory => _histories.map((h) => h.userId).toSet().length;
+  int get totalDonorsWithHistory =>
+      _histories.map((h) => h.userId).toSet().length;
 }

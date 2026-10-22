@@ -2,19 +2,64 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'storage_service.dart';
 
-// Ganti dengan alamat backend kamu
-const String baseUrl = "http://10.0.2.2:3000/api";
+// ✅ Untuk emulator Android (10.0.2.2 = localhost di komputer)
+const String baseUrl = "http://10.0.2.2:8000/api";
 
 class ApiService {
   final StorageService _storage;
   ApiService(this._storage);
 
+  // === REGISTER (DAFTAR AKUN BARU) ===
+  Future<Map<String, dynamic>> register({
+    required String name,
+    required String username,
+    required String password,
+    required String phone,
+    required String bloodType,
+    required String city,
+    required int weight,
+    required int height,
+  }) async {
+    final res = await http.post(
+      Uri.parse("$baseUrl/register"),
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json", // ✅ TAMBAHAN: minta balasan JSON
+      },
+      body: jsonEncode({
+        "name": name,
+        "username": username,
+        "password": password,
+        "phone": phone,
+        "blood_type": bloodType,
+        "city": city,
+        "weight": weight,
+        "height": height,
+      }),
+    );
+
+    if (res.statusCode == 201 || res.statusCode == 200) {
+      final data = jsonDecode(res.body);
+      if (data['token'] != null) {
+        await _storage.writeString('auth_token', data['token']);
+      }
+      if (data['user'] != null) {
+        await _storage.writeMap('pengguna', data['user']);
+      }
+      return data;
+    }
+    throw Exception("Daftar gagal: ${res.body}");
+  }
+
   // === LOGIN ===
-  Future<Map<String, dynamic>> login(String email, String password) async {
+  Future<Map<String, dynamic>> login(String username, String password) async {
     final res = await http.post(
       Uri.parse("$baseUrl/login"),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({"email": email, "password": password}),
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json", // ✅ TAMBAHAN: minta balasan JSON
+      },
+      body: jsonEncode({"username": username, "password": password}),
     );
 
     if (res.statusCode == 200) {
@@ -22,9 +67,8 @@ class ApiService {
       if (data['token'] != null) {
         await _storage.writeString('auth_token', data['token']);
       }
-      // Simpan data pengguna juga kalau ada
-      if (data['pengguna'] != null) {
-        await _storage.writeMap('pengguna', data['pengguna']);
+      if (data['user'] != null) {
+        await _storage.writeMap('pengguna', data['user']);
       }
       return data;
     }
@@ -48,33 +92,30 @@ class ApiService {
     await _storage.remove('daftar_kebutuhan');
   }
 
-  // === AMBIL DAFTAR KEBUTUHAN DARAH ===
+  // === AMBIL DAFTAR PERMINTAAN DARAH ===
   Future<List<Map<String, dynamic>>> getKebutuhanDarah(
       {bool refresh = false}) async {
-    // Coba ambil dari server dulu
     final token = _ambilToken();
     if (token == null) throw Exception("Belum login");
 
     try {
       final res = await http.get(
-        Uri.parse("$baseUrl/kebutuhan"),
-        headers: {"Authorization": "Bearer $token"},
+        Uri.parse("$baseUrl/blood-requests"),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Accept": "application/json", // ✅ TAMBAHAN
+        },
       );
-
       if (res.statusCode == 200) {
         final List<dynamic> data = jsonDecode(res.body);
         final hasil =
             data.map((e) => (e as Map).cast<String, dynamic>()).toList();
-        // Simpan ke penyimpanan lokal untuk cadangan
         await _storage.writeList('daftar_kebutuhan', hasil);
         return hasil;
       }
     } catch (e) {
-      // Kalau server mati, pakai data lokal terakhir
       print("Gagal ambil dari server, pakai data tersimpan: $e");
     }
-
-    // Kembalikan data tersimpan
     return _storage.readList('daftar_kebutuhan');
   }
 
@@ -84,9 +125,10 @@ class ApiService {
     if (token == null) throw Exception("Belum login");
 
     final res = await http.post(
-      Uri.parse("$baseUrl/kebutuhan"),
+      Uri.parse("$baseUrl/blood-requests"),
       headers: {
         "Content-Type": "application/json",
+        "Accept": "application/json", // ✅ TAMBAHAN
         "Authorization": "Bearer $token",
       },
       body: jsonEncode(data),
@@ -94,7 +136,6 @@ class ApiService {
 
     if (res.statusCode == 201 || res.statusCode == 200) {
       final hasil = jsonDecode(res.body) as Map<String, dynamic>;
-      // Segarkan daftar setelah tambah
       await getKebutuhanDarah(refresh: true);
       return hasil;
     }
@@ -108,7 +149,10 @@ class ApiService {
 
     final res = await http.get(
       Uri.parse("$baseUrl/cari-pendonor/$golonganDarah"),
-      headers: {"Authorization": "Bearer $token"},
+      headers: {
+        "Authorization": "Bearer $token",
+        "Accept": "application/json", // ✅ TAMBAHAN
+      },
     );
 
     if (res.statusCode == 200) {

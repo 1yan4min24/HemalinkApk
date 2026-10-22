@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../controllers/app_controller.dart';
+import '../../services/api_service.dart';
+import '../../services/storage_service.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
+import '../../controllers/app_controller.dart';
+import '../admin/admin_dashboard_screen.dart';
 import '../main/main_sheel.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -53,29 +56,59 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
-    final error = await AppController.instance.register(
-      name: _name.text,
-      username: _username.text,
-      phone: _phone.text,
-      password: _pass.text,
-      bloodType: _bloodType!,
-      weight: int.parse(_weight.text),
-      height: int.parse(_height.text),
-      city: _city.text,
-    );
-    if (!mounted) return;
-    setState(() => _loading = false);
-    if (error != null) {
-      ScaffoldMessenger.of(
+
+    try {
+      final storage = await StorageService.create();
+      final api = ApiService(storage);
+
+      final result = await api.register(
+        name: _name.text.trim(),
+        username: _username.text.trim(),
+        password: _pass.text.trim(),
+        phone: _phone.text.trim(),
+        bloodType: _bloodType!,
+        city: _city.text.trim(),
+        weight: int.parse(_weight.text),
+        height: int.parse(_height.text),
+      );
+
+      if (!mounted) return;
+      setState(() => _loading = false);
+
+      // ✅ Ambil data user & role
+      final userData = result['user'] as Map<String, dynamic>;
+      final role = userData['role'] as String? ?? 'user';
+
+      // ✅ Set currentUser via method publik (tidak error)
+      AppController.instance.setCurrentUserFromApi(
+        id: userData['id'].toString(),
+        name: userData['name'] ?? '',
+        username: userData['username'] ?? '',
+        phone: userData['phone'] ?? '',
+        bloodType: userData['blood_type'] ?? '',
+        city: userData['city'] ?? '',
+        weight: (userData['weight'] as num?)?.toInt() ?? 0,
+        height: (userData['height'] as num?)?.toInt() ?? 0,
+        isAdmin: role == 'admin',
+      );
+
+      // Daftar berhasil → masuk sesuai role
+      Navigator.pushAndRemoveUntil(
         context,
-      ).showSnackBar(SnackBar(content: Text(error)));
-      return;
+        MaterialPageRoute(
+          builder: (_) => role == 'admin'
+              ? const AdminDashboardScreen()
+              : const MainShell(),
+        ),
+        (_) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal daftar: $e')),
+      );
     }
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const MainShell()),
-      (_) => false,
-    );
   }
 
   @override
