@@ -1,0 +1,26 @@
+name: hemalinkapp
+description: Aplikasi Donor Darah
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.0
+  shared_preferences: ^2.5.6
+  image_picker: ^1.2.4
+  pdf: ^3.11.1
+  printing: ^5.13.1
+  file_saver: ^0.2.14
+  crypto: ^3.0.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
