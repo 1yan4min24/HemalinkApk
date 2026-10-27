@@ -33,13 +33,4 @@ class AppConstants {
   static const maxAttachmentBytes = 1536 * 1024;
   static const healthCheckNote =
       'Cek kesehatan dapat dilakukan langsung di PMI.';
-
-  /// Akun admin PMI (lokal). GANTI sebelum dipakai, dan pindahkan ke backend
-  /// (Firebase Auth / API) untuk penggunaan sungguhan.
-  /// false = daftar/login memakai penyimpanan lokal di perangkat (tanpa server).
-  /// true  = memakai server di api_service.dart (backend harus menyala).
-  static const useBackend = false;
-
-  static const adminUsername = 'admin';
-  static const adminPassword = 'pmi12345';
 }

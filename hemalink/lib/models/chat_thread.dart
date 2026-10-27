@@ -18,7 +18,7 @@ class ChatMessage {
   factory ChatMessage.fromJson(Map<String, dynamic> j) => ChatMessage(
         senderId: j['senderId'] as String,
         text: j['text'] as String,
-        sentAt: DateTime.parse(j['sentAt'] as String),
+        sentAt: DateTime.parse(j['sentAt'] as String).toLocal(),
       );
 }
 
@@ -69,7 +69,7 @@ class ChatThread {
         donorId: j['donorId'] as String,
         donorName: j['donorName'] as String,
         bloodType: j['bloodType'] as String,
-        createdAt: DateTime.parse(j['createdAt'] as String),
+        createdAt: DateTime.parse(j['createdAt'] as String).toLocal(),
         messages: (j['messages'] as List)
             .map((m) => ChatMessage.fromJson((m as Map).cast<String, dynamic>()))
             .toList(),

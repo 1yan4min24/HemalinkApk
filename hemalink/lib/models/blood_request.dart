@@ -38,6 +38,6 @@ class BloodRequest {
         bags: j['bags'] as int,
         reason: j['reason'] as String,
         hospital: j['hospital'] as String,
-        createdAt: DateTime.parse(j['createdAt'] as String),
+        createdAt: DateTime.parse(j['createdAt'] as String).toLocal(),
       );
 }

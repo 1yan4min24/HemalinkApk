@@ -32,7 +32,7 @@ class StockLog {
 
   factory StockLog.fromJson(Map<String, dynamic> j) => StockLog(
         id: j['id'] as String,
-        at: DateTime.parse(j['at'] as String),
+        at: DateTime.parse(j['at'] as String).toLocal(),
         actor: j['actor'] as String,
         reason: j['reason'] as String,
         bloodType: j['bloodType'] as String,

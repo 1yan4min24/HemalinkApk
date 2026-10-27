@@ -30,6 +30,6 @@ class DonorHistory {
         place: j['place'] as String,
         reason: j['reason'] as String,
         bags: j['bags'] as int,
-        date: DateTime.parse(j['date'] as String),
+        date: DateTime.parse(j['date'] as String).toLocal(),
       );
 }

@@ -1,6 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
-import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart';
+import 'dart:typed_data';
+import 'package:flutter/material.dart';
 import '../core/constants/app_constants.dart';
 import '../models/blood_request.dart';
 import '../models/chat_thread.dart';
@@ -8,28 +9,46 @@ import '../models/donor_history.dart';
 import '../models/stock_log.dart';
 import '../models/stock_request.dart';
 import '../models/user_account.dart';
+import '../screens/auth/login_screen.dart';
+import '../services/api_service.dart';
 import '../services/storage_service.dart';
 
 /// Pusat state & logika aplikasi. Semua layar membaca dari sini.
-/// Untuk backend sungguhan, ganti isi method (bukan layar)-nya.
+/// Data sekarang berasal dari backend Laravel (lihat api_service.dart);
+/// SharedPreferences hanya menyimpan token dan data akun untuk sesi.
 class AppController extends ChangeNotifier {
-  AppController._(this._store);
+  AppController._(this._store, this._api) {
+    _api.onUnauthorized = _handleUnauthorized;
+  }
+
   static late AppController instance;
+
+  /// Dipasang di MaterialApp (lihat main.dart).
+  static final navigatorKey = GlobalKey<NavigatorState>();
+  static final messengerKey = GlobalKey<ScaffoldMessengerState>();
+
   final StorageService _store;
+  final ApiService _api;
 
   static Future<void> init() async {
     final store = await StorageService.create();
-    instance = AppController._(store).._load();
-    instance.expireOverdueStockRequests();
+    final c = AppController._(store, ApiService());
+    instance = c;
+    c._restoreSession();
+    if (c.isLoggedIn) {
+      // Tunggu data awal sebentar agar layar pertama langsung terisi.
+      await c.refreshAll().timeout(const Duration(seconds: 6), onTimeout: () {});
+      if (c.isLoggedIn) c._startPolling(); // bisa false bila token sudah kedaluwarsa
+    }
   }
 
   // ---------- state ----------
-  List<UserAccount> _accounts = [];
   List<BloodRequest> _requests = [];
   List<ChatThread> _threads = [];
   List<DonorHistory> _histories = [];
-  List<StockRequest> _stockRequests = [];
+  List<StockRequest> _stockRequests = []; // user: milik sendiri, admin: semua
   List<StockLog> _stockLogs = [];
+  Map<String, dynamic> _stats = {};
   final Map<String, int> stock = {
     for (final t in AppConstants.bloodTypes) t: 0
   };
@@ -39,74 +58,123 @@ class AppController extends ChangeNotifier {
   bool isAdmin = false;
   bool get isLoggedIn => currentUser != null;
 
-  // ---------- load ----------
-  void _load() {
-    _accounts = _store.readList('accounts').map(UserAccount.fromJson).toList();
-    _requests = _store.readList('requests').map(BloodRequest.fromJson).toList();
-    _threads = _store.readList('threads').map(ChatThread.fromJson).toList();
-    _histories =
-        _store.readList('histories').map(DonorHistory.fromJson).toList();
-    _stockRequests =
-        _store.readList('stock_requests').map(StockRequest.fromJson).toList();
-    _stockLogs = _store.readList('stock_logs').map(StockLog.fromJson).toList();
+  final Map<String, String> _sig = {}; // tanda data terakhir, untuk mendeteksi perubahan
+  final Map<String, Uint8List> _attachmentCache = {};
 
-    final st = _store.readMap('stock');
-    if (st != null) {
-      for (final t in AppConstants.bloodTypes) {
-        stock[t] = (st[t] as int?) ?? 0;
-      }
-    }
-    final ts = _store.readString('stock_updated');
-    stockUpdatedAt = ts == null ? null : DateTime.tryParse(ts);
+  // ---------- util ----------
+  String _msg(Object e) => e is ApiException ? e.message : 'Terjadi kesalahan: $e';
 
-    final session = _store.readString('session');
-    if (session == 'admin') {
-      isAdmin = true;
-    } else if (session != null) {
-      final i = _accounts.indexWhere((a) => a.id == session);
-      if (i >= 0) currentUser = _accounts[i];
+  void _toast(String msg) {
+    messengerKey.currentState
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  /// Menjalankan aksi; mengembalikan pesan error atau null jika berhasil.
+  Future<String?> _run(Future<void> Function() action) async {
+    try {
+      await action();
+      return null;
+    } catch (e) {
+      return _msg(e);
     }
   }
 
-  String _hash(String p) => sha256.convert(utf8.encode(p)).toString();
-  String _newId() => DateTime.now().microsecondsSinceEpoch.toString();
+  /// Seperti [_run], tetapi error ditampilkan sebagai snackbar.
+  Future<void> _runToast(Future<void> Function() action) async {
+    final err = await _run(action);
+    if (err != null) _toast(err);
+  }
 
-  Future<void> _saveAccounts() =>
-      _store.writeList('accounts', _accounts.map((e) => e.toJson()).toList());
-  Future<void> _saveRequests() =>
-      _store.writeList('requests', _requests.map((e) => e.toJson()).toList());
-  Future<void> _saveThreads() =>
-      _store.writeList('threads', _threads.map((e) => e.toJson()).toList());
-  Future<void> _saveHistories() =>
-      _store.writeList('histories', _histories.map((e) => e.toJson()).toList());
-  Future<void> _saveStockRequests() => _store.writeList(
-      'stock_requests', _stockRequests.map((e) => e.toJson()).toList());
-  Future<void> _saveStockLogs() => _store.writeList(
-      'stock_logs', _stockLogs.map((e) => e.toJson()).toList());
-
-  /// Mencatat perubahan stok (disimpan oleh _persistStock). Maksimal 500 catatan.
-  void _logStock(
-      String type, int before, int after, String actor, String reason) {
-    _stockLogs.add(StockLog(
-      id: _newId(),
-      at: DateTime.now(),
-      actor: actor,
-      reason: reason,
-      bloodType: type,
-      before: before,
-      after: after,
-    ));
-    if (_stockLogs.length > 500) {
-      _stockLogs.removeRange(0, _stockLogs.length - 500);
+  /// Untuk pemuat data latar belakang: error cukup dicatat.
+  Future<void> _quiet(Future<void> Function() action) async {
+    try {
+      await action();
+    } catch (e) {
+      debugPrint('[API] ${_msg(e)}');
     }
   }
 
-  Future<void> _persistStock() async {
-    await _saveStockLogs();
-    stockUpdatedAt = DateTime.now();
-    await _store.writeMap('stock', stock);
-    await _store.writeString(
-        'stock_updated', stockUpdatedAt!.toIso8601String());
+  bool _changed(String key, Object? raw) {
+    final s = jsonEncode(raw);
+    if (_sig[key] == s) return false;
+    _sig[key] = s;
+    return true;
+  }
+
+  // ---------- sesi ----------
+  void _restoreSession() {
+    final token = _store.readString('auth_token');
+    final user = _store.readMap('pengguna');
+    if (token == null || user == null) return;
+    _api.token = token;
+    _applyUser(user);
+  }
+
+  void _applyUser(Map<String, dynamic> u) {
+    currentUser = UserAccount(
+      id: u['id'].toString(),
+      name: (u['name'] as String?) ?? '',
+      username: (u['username'] as String?) ?? '',
+      passwordHash: '',
+      phone: (u['phone'] as String?) ?? '',
+      bloodType: (u['blood_type'] as String?) ?? '',
+      city: (u['city'] as String?) ?? '',
+      weight: (u['weight'] as num?)?.toInt() ?? 0,
+      height: (u['height'] as num?)?.toInt() ?? 0,
+    );
+    isAdmin = u['role'] == 'admin';
+  }
+
+  Future<void> _startSession(Map<String, dynamic> data) async {
+    final token = data['token'] as String;
+    final user = (data['user'] as Map).cast<String, dynamic>();
+    _resetData();
+    _api.token = token;
+    await _store.writeString('auth_token', token);
+    await _store.writeMap('pengguna', user);
+    _applyUser(user);
+    notifyListeners();
+    await refreshAll();
+    _startPolling();
+  }
+
+  void _resetData() {
+    _requests = [];
+    _threads = [];
+    _histories = [];
+    _stockRequests = [];
+    _stockLogs = [];
+    _stats = {};
+    for (final t in AppConstants.bloodTypes) {
+      stock[t] = 0;
+    }
+    stockUpdatedAt = null;
+    _sig.clear();
+    _attachmentCache.clear();
+  }
+
+  Future<void> _clearSession() async {
+    _stopPolling();
+    _api.token = null;
+    currentUser = null;
+    isAdmin = false;
+    _resetData();
+    notifyListeners();
+    await _store.remove('auth_token');
+    await _store.remove('pengguna');
+  }
+
+  bool _loggingOut = false;
+
+  void _handleUnauthorized() {
+    if (_loggingOut || !isLoggedIn) return;
+    _clearSession();
+    _toast('Sesi berakhir, silakan masuk lagi.');
+    navigatorKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (_) => false,
+    );
   }
 
   // ---------- auth ----------
@@ -120,89 +188,38 @@ class AppController extends ChangeNotifier {
     required int weight,
     required int height,
     required String city,
-  }) async {
-    final u = username.trim().toLowerCase();
-    if (u == AppConstants.adminUsername ||
-        _accounts.any((a) => a.username == u)) {
-      return 'Username sudah dipakai, silakan pilih yang lain.';
-    }
-    final acc = UserAccount(
-      id: _newId(),
-      name: name.trim(),
-      username: u,
-      passwordHash: _hash(password),
-      phone: phone.trim(),
-      bloodType: bloodType,
-      city: city.trim(),
-      weight: weight,
-      height: height,
-    );
-    _accounts.add(acc);
-    await _saveAccounts();
-    currentUser = acc;
-    isAdmin = false;
-    await _store.writeString('session', acc.id);
-    notifyListeners();
-    return null;
-  }
+  }) =>
+      _run(() async {
+        final data = await _api.register({
+          'name': name.trim(),
+          'username': username.trim().toLowerCase(),
+          'password': password,
+          'phone': phone.trim(),
+          'blood_type': bloodType,
+          'city': city.trim(),
+          'weight': weight,
+          'height': height,
+        });
+        await _startSession(data);
+      });
 
   Future<String?> login(String username, String password,
-      {required bool asAdmin}) async {
-    final u = username.trim().toLowerCase();
-    if (asAdmin) {
-      if (u == AppConstants.adminUsername &&
-          password == AppConstants.adminPassword) {
-        isAdmin = true;
-        currentUser = null;
-        await _store.writeString('session', 'admin');
-        notifyListeners();
-        return null;
-      }
-      return 'Username atau password admin salah.';
-    }
-    final i = _accounts.indexWhere((a) => a.username == u);
-    if (i < 0 || _accounts[i].passwordHash != _hash(password)) {
-      return 'Username atau password salah.';
-    }
-    currentUser = _accounts[i];
-    isAdmin = false;
-    await _store.writeString('session', currentUser!.id);
-    notifyListeners();
-    return null;
-  }
+          {required bool asAdmin}) =>
+      _run(() async {
+        final data = await _api.login(username.trim().toLowerCase(), password,
+            asAdmin: asAdmin);
+        await _startSession(data);
+      });
 
   Future<void> logout() async {
-    currentUser = null;
-    isAdmin = false;
-    await _store.remove('session');
-    notifyListeners();
-  }
-
-  // ✅ Set user dari hasil login API (supaya layar beranda dll bisa baca data)
-  void setCurrentUserFromApi({
-    required String id,
-    required String name,
-    required String username,
-    required String phone,
-    required String bloodType,
-    required String city,
-    required int weight,
-    required int height,
-    required bool isAdmin,
-  }) {
-    currentUser = UserAccount(
-      id: id,
-      name: name,
-      username: username,
-      passwordHash: '',
-      phone: phone,
-      bloodType: bloodType,
-      city: city,
-      weight: weight,
-      height: height,
-    );
-    this.isAdmin = isAdmin;
-    notifyListeners();
+    _loggingOut = true;
+    try {
+      await _api.logout();
+    } catch (_) {
+      // abaikan: token tetap dihapus di perangkat
+    }
+    await _clearSession();
+    _loggingOut = false;
   }
 
   Future<void> updateProfile({
@@ -212,38 +229,133 @@ class AppController extends ChangeNotifier {
     required String city,
     required int weight,
     required int height,
-  }) async {
-    final me = currentUser!;
-    final updated = me.copyWith(
-      name: name.trim(),
-      phone: phone.trim(),
-      bloodType: bloodType,
-      city: city.trim(),
-      weight: weight,
-      height: height,
-    );
-    final i = _accounts.indexWhere((a) => a.id == me.id);
-    _accounts[i] = updated;
-    currentUser = updated;
-    for (final r in _requests.where((r) => r.requesterId == me.id)) {
-      r.requesterName = updated.name;
+  }) =>
+      _runToast(() async {
+        final m = await _api.updateProfile({
+          'name': name.trim(),
+          'phone': phone.trim(),
+          'blood_type': bloodType,
+          'city': city.trim(),
+          'weight': weight,
+          'height': height,
+        });
+        await _store.writeMap('pengguna', m);
+        _applyUser(m);
+        notifyListeners();
+        unawaited(refreshAll());
+      });
+
+  // ---------- memuat data ----------
+  Future<void> refreshAll() async {
+    if (!isLoggedIn) return;
+    await Future.wait([
+      _loadStock(),
+      _loadRequests(),
+      _loadStockRequests(),
+      if (isAdmin) _loadStockLogs(),
+      if (isAdmin) _loadStats(),
+      if (!isAdmin) _loadThreads(),
+      if (!isAdmin) _loadHistories(),
+    ]);
+  }
+
+  void _applyStock(Map<String, dynamic> m) {
+    final st = (m['stock'] as Map).cast<String, dynamic>();
+    for (final t in AppConstants.bloodTypes) {
+      stock[t] = (st[t] as num?)?.toInt() ?? 0;
     }
-    for (final r in _stockRequests.where((r) => r.requesterId == me.id)) {
-      r.requesterName = updated.name;
-    }
-    for (final t in _threads) {
-      if (t.requesterId == me.id) t.requesterName = updated.name;
-      if (t.donorId == me.id) t.donorName = updated.name;
-    }
-    await _saveAccounts();
-    await _saveRequests();
-    await _saveStockRequests();
-    await _saveThreads();
+    final ts = m['updatedAt'] as String?;
+    stockUpdatedAt = ts == null ? null : DateTime.tryParse(ts)?.toLocal();
     notifyListeners();
   }
 
+  Future<void> _loadStock() => _quiet(() async {
+        final m = await _api.stock();
+        if (_changed('stock', m)) _applyStock(m);
+      });
+
+  Future<void> _loadRequests() => _quiet(() async {
+        final raw = await _api.bloodRequests();
+        if (!_changed('requests', raw)) return;
+        _requests = raw.map(BloodRequest.fromJson).toList();
+        notifyListeners();
+      });
+
+  Future<void> _loadStockRequests() => _quiet(() async {
+        final raw =
+            isAdmin ? await _api.adminStockRequests() : await _api.myStockRequests();
+        if (!_changed('stockRequests', raw)) return;
+        _stockRequests = raw.map(StockRequest.fromJson).toList();
+        notifyListeners();
+      });
+
+  Future<void> _loadStockLogs() => _quiet(() async {
+        final raw = await _api.stockLogs();
+        if (!_changed('stockLogs', raw)) return;
+        _stockLogs = raw.map(StockLog.fromJson).toList();
+        notifyListeners();
+      });
+
+  Future<void> _loadStats() => _quiet(() async {
+        final m = await _api.adminStats();
+        if (!_changed('stats', m)) return;
+        _stats = m;
+        notifyListeners();
+      });
+
+  Future<void> _loadThreads() => _quiet(() async {
+        final raw = await _api.chatThreads();
+        if (!_changed('threads', raw)) return;
+        _threads = raw.map(ChatThread.fromJson).toList();
+        notifyListeners();
+      });
+
+  Future<void> _loadHistories() => _quiet(() async {
+        final raw = await _api.donorHistories();
+        if (!_changed('histories', raw)) return;
+        _histories = raw.map(DonorHistory.fromJson).toList();
+        notifyListeners();
+      });
+
+  // ---------- polling sementara (digantikan WebSocket/Reverb nanti) ----------
+  Timer? _timer;
+  int _tick = 0;
+  bool _polling = false;
+
+  void _startPolling() {
+    _timer?.cancel();
+    _tick = 0;
+    _timer = Timer.periodic(const Duration(seconds: 4), (_) => _poll());
+  }
+
+  void _stopPolling() {
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  Future<void> _poll() async {
+    if (!isLoggedIn || _polling) return;
+    _polling = true;
+    try {
+      _tick++;
+      if (isAdmin) {
+        await Future.wait([_loadStockRequests(), _loadStock()]);
+      } else {
+        await Future.wait([_loadThreads(), _loadStockRequests()]);
+      }
+      if (_tick % 5 == 0) {
+        await Future.wait([
+          _loadRequests(),
+          if (!isAdmin) _loadStock(),
+          if (isAdmin) _loadStats(),
+        ]);
+      }
+    } finally {
+      _polling = false;
+    }
+  }
+
   // ---------- permohonan (forum) ----------
-  /// Forum permintaan darah: langsung tampil ke semua pengguna (tanpa verifikasi admin).
   List<BloodRequest> get visibleRequests =>
       _requests.toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
@@ -251,41 +363,33 @@ class AppController extends ChangeNotifier {
   int get activeRequests => _requests.length;
 
   /// Mengembalikan pesan error, atau null jika berhasil.
-  /// Forum hanya untuk golongan darah yang stoknya kosong di PMI.
+  /// Forum hanya untuk golongan darah yang stoknya kosong di PMI (dicek server).
   Future<String?> addRequest({
     required String bloodType,
     required int bags,
     required String reason,
     required String hospital,
-  }) async {
-    if ((stock[bloodType] ?? 0) > 0) {
-      return 'Stok golongan $bloodType masih tersedia di PMI. Silakan ajukan langsung ke PMI.';
-    }
-    final me = currentUser!;
-    _requests.add(BloodRequest(
-      id: _newId(),
-      requesterId: me.id,
-      requesterName: me.name,
-      bloodType: bloodType,
-      bags: bags,
-      reason: reason.trim(),
-      hospital: hospital.trim(),
-      createdAt: DateTime.now(),
-    ));
-    await _saveRequests();
-    notifyListeners();
-    return null;
-  }
+  }) =>
+      _run(() async {
+        final m = await _api.createBloodRequest({
+          'blood_type': bloodType,
+          'bags': bags,
+          'reason': reason.trim(),
+          'hospital': hospital.trim(),
+        });
+        _requests.add(BloodRequest.fromJson(m));
+        _sig.remove('requests');
+        notifyListeners();
+      });
 
-  Future<void> deleteRequest(String id) async {
-    _requests.removeWhere((r) => r.id == id);
-    await _saveRequests();
-    notifyListeners();
-  }
+  Future<void> deleteRequest(String id) => _runToast(() async {
+        await _api.deleteBloodRequest(id);
+        _requests.removeWhere((r) => r.id == id);
+        _sig.remove('requests');
+        notifyListeners();
+      });
 
   // ---------- pengajuan stok PMI ----------
-  final Map<String, Uint8List> _attachmentCache = {};
-
   List<StockRequest> get allStockRequests =>
       _stockRequests.toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
@@ -323,26 +427,34 @@ class AppController extends ChangeNotifier {
   List<StockLog> get stockLogs =>
       _stockLogs.toList()..sort((a, b) => b.at.compareTo(a.at));
 
-  StockRequest? _findStock(String id) {
-    for (final r in _stockRequests) {
-      if (r.id == id) return r;
-    }
-    return null;
-  }
-
-  /// Foto bukti rekomendasi rumah sakit untuk sebuah pengajuan.
+  /// Foto bukti rekomendasi rumah sakit untuk sebuah pengajuan (diunduh dari server).
   Future<Uint8List?> stockAttachment(String id) async {
     final cached = _attachmentCache[id];
     if (cached != null) return cached;
-    final raw = _store.readString('stock_att_$id');
-    if (raw == null) return null;
-    final bytes = base64Decode(raw);
-    _attachmentCache[id] = bytes;
-    return bytes;
+    try {
+      final bytes = await _api.stockAttachment(id);
+      _attachmentCache[id] = bytes;
+      return bytes;
+    } catch (e) {
+      debugPrint('[API] bukti $id: ${_msg(e)}');
+      return null;
+    }
   }
 
-  /// Pengaju pertama langsung "mengunci" kantong darahnya: stok berkurang
-  /// saat pengajuan dikirim. Mengembalikan pesan error, atau null jika berhasil.
+  void _replaceStockRequest(Map<String, dynamic> m) {
+    final r = StockRequest.fromJson(m);
+    final i = _stockRequests.indexWhere((e) => e.id == r.id);
+    if (i >= 0) {
+      _stockRequests[i] = r;
+    } else {
+      _stockRequests.add(r);
+    }
+    _sig.remove('stockRequests');
+    notifyListeners();
+  }
+
+  /// Pengaju langsung "mengunci" kantong darahnya: stok berkurang di server.
+  /// Mengembalikan pesan error, atau null jika berhasil.
   Future<String?> requestStock({
     required String bloodType,
     required int bags,
@@ -353,135 +465,61 @@ class AppController extends ChangeNotifier {
     required Uint8List attachment,
     required String attachmentName,
   }) async {
-    final me = currentUser;
-    if (me == null) return 'Silakan login terlebih dahulu.';
-    final available = stock[bloodType] ?? 0;
-    if (available <= 0) {
-      return 'Stok golongan $bloodType sedang kosong.';
-    }
-    if (bags > available) {
-      return 'Stok golongan $bloodType hanya tersisa $available kantong.';
-    }
-
-    final id = _newId();
-    try {
-      await _store.writeString('stock_att_$id', base64Encode(attachment));
-      if (_store.readString('stock_att_$id') == null) {
-        throw StateError('attachment not saved');
-      }
-    } catch (_) {
-      return 'Bukti rekomendasi gagal disimpan (penyimpanan penuh). Gunakan foto yang lebih kecil.';
-    }
-    _attachmentCache[id] = attachment;
-
-    _logStock(bloodType, available, available - bags, me.name,
-        'Pengajuan darah untuk pasien ${patientName.trim()}');
-    stock[bloodType] = available - bags;
-    _stockRequests.add(StockRequest(
-      id: id,
-      requesterId: me.id,
-      requesterName: me.name,
-      requesterPhone: me.phone,
-      bloodType: bloodType,
-      bags: bags,
-      patientName: patientName.trim(),
-      hospital: hospital.trim(),
-      reason: reason.trim(),
-      letterNo: letterNo.trim(),
-      attachmentName: attachmentName,
-      createdAt: DateTime.now(),
-    ));
-    await _persistStock();
-    await _saveStockRequests();
-    notifyListeners();
-    return null;
+    if (currentUser == null) return 'Silakan login terlebih dahulu.';
+    return _run(() async {
+      final m = await _api.createStockRequest(
+        fields: {
+          'blood_type': bloodType,
+          'bags': '$bags',
+          'patient_name': patientName.trim(),
+          'hospital': hospital.trim(),
+          'reason': reason.trim(),
+          'letter_no': letterNo.trim(),
+          'attachment_name': attachmentName,
+        },
+        attachment: attachment,
+        filename: attachmentName.isEmpty ? 'bukti.jpg' : attachmentName,
+      );
+      final id = m['id'].toString();
+      _attachmentCache[id] = attachment;
+      _replaceStockRequest(m);
+      await _loadStock();
+    });
   }
 
   /// Admin menyetujui pengajuan (bukti valid). Stok tetap tertahan untuk pemohon.
-  Future<void> approveStockRequest(String id, {String note = ''}) async {
-    final r = _findStock(id);
-    if (r == null || r.status != StockRequestStatus.processing) return;
-    r
-      ..status = StockRequestStatus.approved
-      ..approvedAt = DateTime.now()
-      ..adminNote = note.trim();
-    await _saveStockRequests();
-    notifyListeners();
-  }
+  Future<void> approveStockRequest(String id, {String note = ''}) =>
+      _runToast(() async {
+        _replaceStockRequest(await _api.approveStockRequest(id, note.trim()));
+      });
 
   /// Admin menolak pengajuan; kantong dikembalikan ke stok.
-  Future<void> rejectStockRequest(String id, String reason) async {
-    final r = _findStock(id);
-    if (r == null || r.status != StockRequestStatus.processing) return;
-    final before = stock[r.bloodType] ?? 0;
-    stock[r.bloodType] = before + r.bags;
-    _logStock(r.bloodType, before, before + r.bags, 'Admin PMI',
-        'Pengajuan ditolak (${r.requesterName})');
-    r
-      ..status = StockRequestStatus.rejected
-      ..adminNote = reason.trim()
-      ..resolvedAt = DateTime.now();
-    await _persistStock();
-    await _saveStockRequests();
-    notifyListeners();
-  }
+  Future<void> rejectStockRequest(String id, String reason) =>
+      _runToast(() async {
+        _replaceStockRequest(await _api.rejectStockRequest(id, reason.trim()));
+        await Future.wait([_loadStock(), _loadStockLogs()]);
+      });
 
   /// Admin menandai darah sudah diambil di PMI.
-  Future<void> completeStockRequest(String id) async {
-    final r = _findStock(id);
-    if (r == null || !r.holdsStock) return;
-    r
-      ..status = StockRequestStatus.completed
-      ..resolvedAt = DateTime.now();
-    await _saveStockRequests();
-    notifyListeners();
-  }
+  Future<void> completeStockRequest(String id) => _runToast(() async {
+        _replaceStockRequest(await _api.completeStockRequest(id));
+      });
 
   /// Admin membatalkan pengajuan; kantong dikembalikan ke stok.
-  Future<void> cancelStockRequest(String id, {String note = ''}) async {
-    final r = _findStock(id);
-    if (r == null || !r.holdsStock) return;
-    final before = stock[r.bloodType] ?? 0;
-    stock[r.bloodType] = before + r.bags;
-    _logStock(r.bloodType, before, before + r.bags, 'Admin PMI',
-        'Pengajuan dibatalkan (${r.requesterName})');
-    r
-      ..status = StockRequestStatus.cancelled
-      ..resolvedAt = DateTime.now();
-    if (note.trim().isNotEmpty) r.adminNote = note.trim();
-    await _persistStock();
-    await _saveStockRequests();
-    notifyListeners();
-  }
+  Future<void> cancelStockRequest(String id, {String note = ''}) =>
+      _runToast(() async {
+        _replaceStockRequest(await _api.cancelStockRequest(id, note.trim()));
+        await Future.wait([_loadStock(), _loadStockLogs()]);
+      });
 
-  /// Pengajuan yang disetujui tetapi tidak diambil sebelum batas waktu
-  /// dibatalkan otomatis dan stoknya dikembalikan. Mengembalikan jumlahnya.
+  /// Pembatalan otomatis (24 jam) dilakukan server. Method ini hanya memuat ulang
+  /// data supaya perubahan terlihat; mengembalikan jumlah pembatalan baru.
   Future<int> expireOverdueStockRequests() async {
-    final now = DateTime.now();
-    var n = 0;
-    for (final r in _stockRequests) {
-      final d = r.pickupDeadline;
-      if (r.status == StockRequestStatus.approved &&
-          d != null &&
-          now.isAfter(d)) {
-        final before = stock[r.bloodType] ?? 0;
-        stock[r.bloodType] = before + r.bags;
-        _logStock(r.bloodType, before, before + r.bags, 'Sistem',
-            'Tidak diambil dalam ${AppConstants.pickupDeadline.inHours} jam (${r.requesterName})');
-        r
-          ..status = StockRequestStatus.cancelled
-          ..resolvedAt = now
-          ..adminNote =
-              'Dibatalkan otomatis: tidak diambil dalam ${AppConstants.pickupDeadline.inHours} jam setelah disetujui.';
-        n++;
-      }
-    }
-    if (n > 0) {
-      await _persistStock();
-      await _saveStockRequests();
-      notifyListeners();
-    }
-    return n;
+    if (!isLoggedIn) return 0;
+    final before = stockCount(StockRequestStatus.cancelled);
+    await Future.wait([_loadStockRequests(), _loadStock()]);
+    final diff = stockCount(StockRequestStatus.cancelled) - before;
+    return diff < 0 ? 0 : diff;
   }
 
   // ---------- chat ----------
@@ -499,39 +537,43 @@ class AppController extends ChangeNotifier {
     return i < 0 ? null : _threads[i];
   }
 
-  /// Membuka percakapan untuk sebuah permohonan (membuat baru bila belum ada).
-  Future<ChatThread> startChat(BloodRequest r) async {
-    final me = currentUser!;
-    final i =
-        _threads.indexWhere((t) => t.requestId == r.id && t.donorId == me.id);
-    if (i >= 0) return _threads[i];
-    final t = ChatThread(
-      id: _newId(),
-      requestId: r.id,
-      requesterId: r.requesterId,
-      requesterName: r.requesterName,
-      donorId: me.id,
-      donorName: me.name,
-      bloodType: r.bloodType,
-      createdAt: DateTime.now(),
-    );
-    _threads.add(t);
-    await _saveThreads();
+  void _upsertThread(ChatThread t) {
+    final i = _threads.indexWhere((e) => e.id == t.id);
+    if (i >= 0) {
+      _threads[i] = t;
+    } else {
+      _threads.add(t);
+    }
+    _sig.remove('threads');
     notifyListeners();
-    return t;
   }
 
-  Future<void> sendMessage(String threadId, String text) async {
-    final t = threadById(threadId);
-    if (t == null || currentUser == null) return;
-    t.messages.add(ChatMessage(
-      senderId: currentUser!.id,
-      text: text.trim(),
-      sentAt: DateTime.now(),
-    ));
-    await _saveThreads();
-    notifyListeners();
+  /// Membuka percakapan untuk sebuah permohonan (membuat baru bila belum ada).
+  /// Mengembalikan null bila gagal (pesan error tampil sebagai snackbar).
+  Future<ChatThread?> startChat(BloodRequest r) async {
+    try {
+      final t = ChatThread.fromJson(await _api.startChat(r.id));
+      _upsertThread(t);
+      return t;
+    } catch (e) {
+      _toast(_msg(e));
+      return null;
+    }
   }
+
+  Future<void> sendMessage(String threadId, String text) => _runToast(() async {
+        final m = ChatMessage.fromJson(
+            await _api.sendMessage(threadId, text.trim()));
+        final t = threadById(threadId);
+        if (t == null) return;
+        final dup = t.messages.any((x) =>
+            x.senderId == m.senderId &&
+            x.text == m.text &&
+            x.sentAt.isAtSameMomentAs(m.sentAt));
+        if (!dup) t.messages.add(m);
+        _sig.remove('threads');
+        notifyListeners();
+      });
 
   // ---------- riwayat donor ----------
   List<DonorHistory> get myHistories {
@@ -562,41 +604,38 @@ class AppController extends ChangeNotifier {
     required String reason,
     required int bags,
     required DateTime date,
-  }) async {
-    _histories.add(DonorHistory(
-      id: _newId(),
-      userId: currentUser!.id,
-      place: place.trim(),
-      reason: reason.trim(),
-      bags: bags,
-      date: date,
-    ));
-    await _saveHistories();
-    notifyListeners();
-  }
+  }) =>
+      _runToast(() async {
+        final m = await _api.addDonorHistory({
+          'place': place.trim(),
+          'reason': reason.trim(),
+          'bags': bags,
+          'date': date.toUtc().toIso8601String(),
+        });
+        _histories.add(DonorHistory.fromJson(m));
+        _sig.remove('histories');
+        notifyListeners();
+      });
 
-  Future<void> deleteHistory(String id) async {
-    _histories.removeWhere((h) => h.id == id);
-    await _saveHistories();
-    notifyListeners();
-  }
+  Future<void> deleteHistory(String id) => _runToast(() async {
+        await _api.deleteDonorHistory(id);
+        _histories.removeWhere((h) => h.id == id);
+        _sig.remove('histories');
+        notifyListeners();
+      });
 
   // ---------- stok & statistik (admin) ----------
-  Future<void> updateStock(Map<String, int> newStock) async {
-    for (final e in newStock.entries) {
-      final before = stock[e.key] ?? 0;
-      if (before != e.value) {
-        _logStock(
-            e.key, before, e.value, 'Admin PMI', 'Input manual oleh admin');
-      }
-    }
-    stock.addAll(newStock);
-    await _persistStock();
-    notifyListeners();
-  }
+  /// Mengembalikan pesan error, atau null jika berhasil.
+  Future<String?> updateStock(Map<String, int> newStock) => _run(() async {
+        final m = await _api.updateStock(newStock);
+        _sig['stock'] = jsonEncode(m);
+        _applyStock(m);
+        await _loadStockLogs();
+      });
 
-  int get totalUsers => _accounts.length;
-  int get totalBagsRecorded => _histories.fold(0, (s, h) => s + h.bags);
-  int get totalDonorsWithHistory =>
-      _histories.map((h) => h.userId).toSet().length;
+  int _stat(String key) => (_stats[key] as num?)?.toInt() ?? 0;
+
+  int get totalUsers => _stat('totalUsers');
+  int get totalBagsRecorded => _stat('totalBagsRecorded');
+  int get totalDonorsWithHistory => _stat('totalDonorsWithHistory');
 }

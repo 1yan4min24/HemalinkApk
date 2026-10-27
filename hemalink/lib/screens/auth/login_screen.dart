@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../services/api_service.dart';
-import '../../services/storage_service.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../controllers/app_controller.dart';
@@ -34,76 +32,27 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
 
-    try {
-      if (!AppConstants.useBackend) {
-        // Mode lokal: akun disimpan di perangkat, admin = akun bawaan PMI.
-        final err = await AppController.instance.login(
-          _userCtrl.text,
-          _passCtrl.text.trim(),
-          asAdmin: _asAdmin,
-        );
-        if (!mounted) return;
-        setState(() => _loading = false);
-        if (err != null) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(err)));
-          return;
-        }
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => AppController.instance.isAdmin
-                ? const AdminDashboardScreen()
-                : const MainShell(),
-          ),
-        );
-        return;
-      }
+    final err = await AppController.instance.login(
+      _userCtrl.text,
+      _passCtrl.text.trim(),
+      asAdmin: _asAdmin,
+    );
+    if (!mounted) return;
+    setState(() => _loading = false);
 
-      final storage = await StorageService.create();
-      final api = ApiService(storage);
-
-      final result = await api.login(
-        _userCtrl.text.trim(),
-        _passCtrl.text.trim(),
-      );
-
-      if (!mounted) return;
-      setState(() => _loading = false);
-
-      // ✅ Ambil data user & role
-      final userData = result['user'] as Map<String, dynamic>;
-      final role = userData['role'] as String? ?? 'user';
-
-      // ✅ Set currentUser via method publik (tidak error)
-      AppController.instance.setCurrentUserFromApi(
-        id: userData['id'].toString(),
-        name: userData['name'] ?? '',
-        username: userData['username'] ?? '',
-        phone: userData['phone'] ?? '',
-        bloodType: userData['blood_type'] ?? '',
-        city: userData['city'] ?? '',
-        weight: (userData['weight'] as num?)?.toInt() ?? 0,
-        height: (userData['height'] as num?)?.toInt() ?? 0,
-        isAdmin: role == 'admin',
-      );
-
-      // ✅ Arahkan sesuai role
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => role == 'admin'
-              ? const AdminDashboardScreen()
-              : const MainShell(),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal login: $e')),
-      );
+    if (err != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+      return;
     }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AppController.instance.isAdmin
+            ? const AdminDashboardScreen()
+            : const MainShell(),
+      ),
+    );
   }
 
   @override

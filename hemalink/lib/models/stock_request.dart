@@ -92,7 +92,7 @@ class StockRequest {
         reason: j['reason'] as String,
         letterNo: (j['letterNo'] as String?) ?? '',
         attachmentName: (j['attachmentName'] as String?) ?? '',
-        createdAt: DateTime.parse(j['createdAt'] as String),
+        createdAt: DateTime.parse(j['createdAt'] as String).toLocal(),
         status: StockRequestStatus.values.firstWhere(
           (s) => s.name == j['status'],
           orElse: () => StockRequestStatus.processing,
@@ -100,9 +100,9 @@ class StockRequest {
         adminNote: (j['adminNote'] as String?) ?? '',
         approvedAt: j['approvedAt'] == null
             ? null
-            : DateTime.tryParse(j['approvedAt'] as String),
+            : DateTime.tryParse(j['approvedAt'] as String)?.toLocal(),
         resolvedAt: j['resolvedAt'] == null
             ? null
-            : DateTime.tryParse(j['resolvedAt'] as String),
+            : DateTime.tryParse(j['resolvedAt'] as String)?.toLocal(),
       );
 }

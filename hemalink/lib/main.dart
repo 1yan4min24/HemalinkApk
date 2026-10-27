@@ -6,7 +6,7 @@ import 'screens/splash/splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await AppController.init(); // memuat akun, permohonan, chat, sesi login
+  await AppController.init(); // memulihkan sesi login & memuat data dari server
   runApp(const HemaLinkApp());
 }
 
@@ -19,6 +19,8 @@ class HemaLinkApp extends StatelessWidget {
       title: 'HemaLink',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
+      navigatorKey: AppController.navigatorKey,
+      scaffoldMessengerKey: AppController.messengerKey,
       home: const SplashScreen(),
     );
   }

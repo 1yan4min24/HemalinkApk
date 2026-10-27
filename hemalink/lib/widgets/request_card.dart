@@ -23,7 +23,7 @@ class RequestCard extends StatelessWidget {
     }
 
     final thread = await AppController.instance.startChat(request);
-    if (!context.mounted) return;
+    if (thread == null || !context.mounted) return;
 
     Navigator.push(
       context,

@@ -23,6 +23,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final _c = AppController.instance;
   late final Map<String, TextEditingController> _ctrls;
   int _lastWaiting = 0;
+  final Map<String, String> _synced = {}; // nilai stok terakhir dari server per kolom
   Timer? _expiryTimer;
 
   @override
@@ -33,6 +34,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         t: TextEditingController(text: '${_c.stock[t] ?? 0}')
     };
     _lastWaiting = _c.stockCount(StockRequestStatus.processing);
+    for (final t in AppConstants.bloodTypes) {
+      _synced[t] = _ctrls[t]!.text;
+    }
     _c.addListener(_onControllerChange);
     // Cek pengajuan yang lewat batas pengambilan setiap menit.
     _expiryTimer = Timer.periodic(const Duration(minutes: 1), (_) {
@@ -56,6 +60,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   /// Pemberitahuan saat ada pengajuan baru masuk ketika admin sedang membuka dashboard.
   void _onControllerChange() {
+    // Stok bisa berubah dari pengajuan pengguna: perbarui kolom yang belum diedit admin.
+    for (final t in AppConstants.bloodTypes) {
+      final fresh = '${_c.stock[t] ?? 0}';
+      final ctrl = _ctrls[t]!;
+      if (ctrl.text == _synced[t]) {
+        ctrl.text = fresh;
+        _synced[t] = fresh;
+      } else if (ctrl.text == fresh) {
+        _synced[t] = fresh;
+      }
+    }
     final n = _c.stockCount(StockRequestStatus.processing);
     if (n > _lastWaiting && mounted) {
       ScaffoldMessenger.of(context)
@@ -223,9 +238,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       }
       newStock[e.key] = n;
     }
-    await _c.updateStock(newStock);
+    final err = await _c.updateStock(newStock);
     messenger.showSnackBar(
-        const SnackBar(content: Text('Stok darah berhasil diperbarui.')));
+        SnackBar(content: Text(err ?? 'Stok darah berhasil diperbarui.')));
   }
 
   Future<void> _copyReport() async {
