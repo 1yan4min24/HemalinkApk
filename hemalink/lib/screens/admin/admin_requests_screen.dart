@@ -57,8 +57,8 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
       if (_bloodFilter != null && r.bloodType != _bloodFilter) return false;
       final range = _range;
       if (range != null) {
-        final start = DateTime(
-            range.start.year, range.start.month, range.start.day);
+        final start =
+            DateTime(range.start.year, range.start.month, range.start.day);
         final end = DateTime(range.end.year, range.end.month, range.end.day)
             .add(const Duration(days: 1));
         if (r.createdAt.isBefore(start) || !r.createdAt.isBefore(end)) {
@@ -138,8 +138,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                 TextField(
                   controller: ctrl,
                   maxLines: 3,
-                  decoration:
-                      InputDecoration(hintText: hint, errorText: error),
+                  decoration: InputDecoration(hintText: hint, errorText: error),
                 ),
               ],
             ),
@@ -168,7 +167,8 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
   Future<void> _approve(StockRequest r) async {
     final note = await _askNote(
       title: 'Setujui pengajuan',
-      hint: 'Tanggapan untuk pemohon (opsional), mis. "Ambil sebelum pukul 15.00"',
+      hint:
+          'Tanggapan untuk pemohon (opsional), mis. "Ambil sebelum pukul 15.00"',
       confirmLabel: 'Setujui',
       templates: _approveTemplates,
     );
@@ -205,7 +205,8 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Hapus permintaan dari forum?'),
-        content: Text('Permintaan ${r.bloodType} dari ${r.requesterName} akan dihapus.'),
+        content: Text(
+            'Permintaan ${r.bloodType} dari ${r.requesterName} akan dihapus.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -468,8 +469,8 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                   color: AppColors.slate50,
                   borderRadius: BorderRadius.circular(8)),
               child: Text('Tanggapan PMI: ${r.adminNote}',
-                  style: const TextStyle(
-                      fontSize: 11, color: AppColors.slate700)),
+                  style:
+                      const TextStyle(fontSize: 11, color: AppColors.slate700)),
             ),
           ],
           if (r.status == StockRequestStatus.processing) ...[
@@ -482,16 +483,15 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                     style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.green,
                         padding: const EdgeInsets.symmetric(vertical: 8)),
-                    child: const Text('Setujui',
-                        style: TextStyle(fontSize: 11)),
+                    child:
+                        const Text('Setujui', style: TextStyle(fontSize: 11)),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => _reject(r),
-                    child:
-                        const Text('Tolak', style: TextStyle(fontSize: 11)),
+                    child: const Text('Tolak', style: TextStyle(fontSize: 11)),
                   ),
                 ),
               ],
@@ -514,8 +514,8 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => _cancel(r),
-                    child: const Text('Batalkan',
-                        style: TextStyle(fontSize: 11)),
+                    child:
+                        const Text('Batalkan', style: TextStyle(fontSize: 11)),
                   ),
                 ),
               ],
@@ -569,7 +569,8 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
       builder: (context, snap) {
         final bytes = snap.data;
         if (bytes == null) {
-          return const Text('Bukti rekomendasi: tidak tersedia di perangkat ini.',
+          return const Text(
+              'Bukti rekomendasi: tidak tersedia di perangkat ini.',
               style: TextStyle(fontSize: 11, color: AppColors.slate400));
         }
         return InkWell(
@@ -595,8 +596,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
               ),
               Container(
                 margin: const EdgeInsets.all(6),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                     color: Colors.black54,
                     borderRadius: BorderRadius.circular(20)),

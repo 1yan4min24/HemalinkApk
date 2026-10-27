@@ -84,7 +84,7 @@ class _RequestFormDialogState extends State<_RequestFormDialog> {
               ),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
-                value: _bloodType,
+                initialValue: _bloodType,
                 decoration: const InputDecoration(
                     labelText: 'Golongan Darah Yang Dibutuhkan'),
                 style: const TextStyle(
@@ -121,8 +121,7 @@ class _RequestFormDialogState extends State<_RequestFormDialog> {
               TextFormField(
                 controller: _bags,
                 keyboardType: TextInputType.number,
-                decoration:
-                    const InputDecoration(labelText: 'Jumlah Kantong'),
+                decoration: const InputDecoration(labelText: 'Jumlah Kantong'),
                 validator: (v) {
                   final n = int.tryParse(v ?? '');
                   return (n == null || n < 1 || n > 20) ? 'Isi 1-20' : null;

@@ -107,7 +107,8 @@ class _StockRequestDialogState extends State<_StockRequestDialog> {
                 errorBuilder: (_, __, ___) => Container(
                   color: AppColors.slate100,
                   alignment: Alignment.center,
-                  child: const Text('Pratinjau tidak tersedia (file tetap terlampir)',
+                  child: const Text(
+                      'Pratinjau tidak tersedia (file tetap terlampir)',
                       textAlign: TextAlign.center,
                       style:
                           TextStyle(fontSize: 11, color: AppColors.slate500)),
@@ -155,8 +156,8 @@ class _StockRequestDialogState extends State<_StockRequestDialog> {
                 child: OutlinedButton.icon(
                   onPressed: () => _pickProof(ImageSource.gallery),
                   icon: const Icon(Icons.upload_file, size: 16),
-                  label: const Text('Pilih Foto',
-                      style: TextStyle(fontSize: 11)),
+                  label:
+                      const Text('Pilih Foto', style: TextStyle(fontSize: 11)),
                 ),
               ),
               if (!kIsWeb) ...[
@@ -165,8 +166,7 @@ class _StockRequestDialogState extends State<_StockRequestDialog> {
                   child: OutlinedButton.icon(
                     onPressed: () => _pickProof(ImageSource.camera),
                     icon: const Icon(Icons.photo_camera_outlined, size: 16),
-                    label:
-                        const Text('Kamera', style: TextStyle(fontSize: 11)),
+                    label: const Text('Kamera', style: TextStyle(fontSize: 11)),
                   ),
                 ),
               ],
@@ -230,122 +230,123 @@ class _StockRequestDialogState extends State<_StockRequestDialog> {
         width: double.maxFinite,
         child: SingleChildScrollView(
           child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEF3C7),
-                  borderRadius: BorderRadius.circular(10),
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Persyaratan pengambilan darah di PMI',
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFB45309))),
+                      for (final r in AppConstants.pmiRequirements)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: Text('• $r',
+                              style: const TextStyle(
+                                  fontSize: 11, color: AppColors.slate700)),
+                        ),
+                      const SizedBox(height: 4),
+                      const Text(AppConstants.healthCheckNote,
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontStyle: FontStyle.italic,
+                              color: AppColors.slate700)),
+                    ],
+                  ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Persyaratan pengambilan darah di PMI',
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFB45309))),
-                    for (final r in AppConstants.pmiRequirements)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 3),
-                        child: Text('• $r',
-                            style: const TextStyle(
-                                fontSize: 11, color: AppColors.slate700)),
-                      ),
-                    const SizedBox(height: 4),
-                    const Text(AppConstants.healthCheckNote,
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontStyle: FontStyle.italic,
-                            color: AppColors.slate700)),
-                  ],
+                const SizedBox(height: 12),
+                TextFormField(
+                  initialValue: me.name,
+                  readOnly: true,
+                  decoration: const InputDecoration(labelText: 'Nama Pemohon'),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                initialValue: me.name,
-                readOnly: true,
-                decoration: const InputDecoration(labelText: 'Nama Pemohon'),
-              ),
-              const SizedBox(height: 10),
-              TextFormField(
-                initialValue: 'Golongan ${widget.bloodType} (stok $maxBags kantong)',
-                readOnly: true,
-                decoration: const InputDecoration(labelText: 'Darah Diminta'),
-              ),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _patient,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'Nama Pasien'),
-                validator: _req,
-              ),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _hospital,
-                decoration: const InputDecoration(
-                  labelText: 'Rumah Sakit / Ruangan',
-                  hintText: 'Nama RS dan ruangan',
+                const SizedBox(height: 10),
+                TextFormField(
+                  initialValue:
+                      'Golongan ${widget.bloodType} (stok $maxBags kantong)',
+                  readOnly: true,
+                  decoration: const InputDecoration(labelText: 'Darah Diminta'),
                 ),
-                validator: _req,
-              ),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _letterNo,
-                decoration: const InputDecoration(
-                  labelText: 'No. Surat Keterangan Rumah Sakit',
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _patient,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(labelText: 'Nama Pasien'),
+                  validator: _req,
                 ),
-                validator: _req,
-              ),
-              const SizedBox(height: 12),
-              _proofSection(),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _reason,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'Alasan / Diagnosis Singkat',
-                  hintText: 'Contoh: Operasi melahirkan darurat',
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _hospital,
+                  decoration: const InputDecoration(
+                    labelText: 'Rumah Sakit / Ruangan',
+                    hintText: 'Nama RS dan ruangan',
+                  ),
+                  validator: _req,
                 ),
-                validator: _req,
-              ),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _bags,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                    labelText: 'Jumlah Kantong (maks. $maxBags)'),
-                validator: (v) {
-                  final n = int.tryParse(v ?? '');
-                  return (n == null || n < 1 || n > maxBags)
-                      ? 'Isi 1-$maxBags'
-                      : null;
-                },
-              ),
-              const SizedBox(height: 6),
-              CheckboxListTile(
-                value: _agree,
-                onChanged: (v) => setState(() => _agree = v ?? false),
-                controlAffinity: ListTileControlAffinity.leading,
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-                title: const Text(
-                    'Saya akan membawa surat keterangan rumah sakit dan identitas asli ke PMI.',
-                    style: TextStyle(fontSize: 11)),
-              ),
-              if (_showAgreeError && !_agree)
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('Centang untuk melanjutkan',
-                      style: TextStyle(fontSize: 11, color: Colors.red)),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _letterNo,
+                  decoration: const InputDecoration(
+                    labelText: 'No. Surat Keterangan Rumah Sakit',
+                  ),
+                  validator: _req,
                 ),
-            ],
+                const SizedBox(height: 12),
+                _proofSection(),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _reason,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Alasan / Diagnosis Singkat',
+                    hintText: 'Contoh: Operasi melahirkan darurat',
+                  ),
+                  validator: _req,
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _bags,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                      labelText: 'Jumlah Kantong (maks. $maxBags)'),
+                  validator: (v) {
+                    final n = int.tryParse(v ?? '');
+                    return (n == null || n < 1 || n > maxBags)
+                        ? 'Isi 1-$maxBags'
+                        : null;
+                  },
+                ),
+                const SizedBox(height: 6),
+                CheckboxListTile(
+                  value: _agree,
+                  onChanged: (v) => setState(() => _agree = v ?? false),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: const Text(
+                      'Saya akan membawa surat keterangan rumah sakit dan identitas asli ke PMI.',
+                      style: TextStyle(fontSize: 11)),
+                ),
+                if (_showAgreeError && !_agree)
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Centang untuk melanjutkan',
+                        style: TextStyle(fontSize: 11, color: Colors.red)),
+                  ),
+              ],
+            ),
           ),
-        ),
         ),
       ),
       actions: [

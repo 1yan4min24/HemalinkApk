@@ -19,6 +19,7 @@ class AppConstants {
     'Identitas pasien dan identitas pemohon (KTP).',
     'Data pasien, golongan darah, dan jumlah kantong sesuai surat dari rumah sakit.',
   ];
+
   /// Stok di bawah angka ini dianggap menipis (peringatan kuning untuk admin).
   static const lowStockThreshold = 5;
 

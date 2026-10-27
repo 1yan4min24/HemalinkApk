@@ -65,7 +65,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit Profil', style: TextStyle(fontSize: 16))),
+      appBar: AppBar(
+          title: const Text('Edit Profil', style: TextStyle(fontSize: 16))),
       backgroundColor: Colors.white,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -83,13 +84,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               TextFormField(
                 controller: _phone,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'No. HP / WhatsApp'),
-                validator: (v) =>
-                    (v == null || v.trim().length < 9) ? 'Nomor tidak valid' : null,
+                decoration:
+                    const InputDecoration(labelText: 'No. HP / WhatsApp'),
+                validator: (v) => (v == null || v.trim().length < 9)
+                    ? 'Nomor tidak valid'
+                    : null,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _bloodType,
+                initialValue: _bloodType,
                 decoration: const InputDecoration(labelText: 'Golongan Darah'),
                 items: AppConstants.bloodTypes
                     .map((t) => DropdownMenuItem(value: t, child: Text(t)))
@@ -104,7 +107,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     child: TextFormField(
                       controller: _weight,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Berat (kg)'),
+                      decoration:
+                          const InputDecoration(labelText: 'Berat (kg)'),
                       validator: (v) => _intRange(v, 20, 250),
                     ),
                   ),
@@ -113,7 +117,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     child: TextFormField(
                       controller: _height,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Tinggi (cm)'),
+                      decoration:
+                          const InputDecoration(labelText: 'Tinggi (cm)'),
                       validator: (v) => _intRange(v, 100, 250),
                     ),
                   ),

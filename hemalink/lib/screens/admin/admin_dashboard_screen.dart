@@ -83,9 +83,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Future<void> _showBriefing() async {
     final waiting = _c.stockCount(StockRequestStatus.processing);
     final approved = _c.stockCount(StockRequestStatus.approved);
-    final empty = AppConstants.bloodTypes
-        .where((t) => (_c.stock[t] ?? 0) <= 0)
-        .toList();
+    final empty =
+        AppConstants.bloodTypes.where((t) => (_c.stock[t] ?? 0) <= 0).toList();
     final low = _c.lowStockTypes;
     final near = _c.nearExpiryCount;
     if (waiting == 0 && approved == 0 && empty.isEmpty && low.isEmpty) return;
@@ -114,10 +113,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            Icon(
-                waiting > 0
-                    ? Icons.notifications_active
-                    : Icons.info_outline,
+            Icon(waiting > 0 ? Icons.notifications_active : Icons.info_outline,
                 color: waiting > 0 ? AppColors.red : AppColors.slate600),
             const SizedBox(width: 8),
             Expanded(
@@ -241,11 +237,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ..writeln('Pendonor dengan riwayat: ${_c.totalDonorsWithHistory}')
       ..writeln('Total kantong tercatat: ${_c.totalBagsRecorded}')
       ..writeln('Permintaan di forum: ${_c.activeRequests}')
-      ..writeln('Pengajuan stok menunggu tanggapan: ${_c.stockCount(StockRequestStatus.processing)}')
-      ..writeln('Pengajuan stok disetujui: ${_c.stockCount(StockRequestStatus.approved)}')
-      ..writeln('Pengajuan stok sudah diambil: ${_c.stockCount(StockRequestStatus.completed)}')
-      ..writeln('Pengajuan stok ditolak: ${_c.stockCount(StockRequestStatus.rejected)}')
-      ..writeln('Pengajuan stok dibatalkan: ${_c.stockCount(StockRequestStatus.cancelled)}')
+      ..writeln(
+          'Pengajuan stok menunggu tanggapan: ${_c.stockCount(StockRequestStatus.processing)}')
+      ..writeln(
+          'Pengajuan stok disetujui: ${_c.stockCount(StockRequestStatus.approved)}')
+      ..writeln(
+          'Pengajuan stok sudah diambil: ${_c.stockCount(StockRequestStatus.completed)}')
+      ..writeln(
+          'Pengajuan stok ditolak: ${_c.stockCount(StockRequestStatus.rejected)}')
+      ..writeln(
+          'Pengajuan stok dibatalkan: ${_c.stockCount(StockRequestStatus.cancelled)}')
       ..writeln('')
       ..writeln('Stok darah:');
     for (final t in AppConstants.bloodTypes) {
@@ -253,8 +254,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
     await Clipboard.setData(ClipboardData(text: b.toString()));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ringkasan laporan disalin ke clipboard.')));
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Ringkasan laporan disalin ke clipboard.')));
   }
 
   Future<void> _logout() async {
@@ -319,8 +320,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     IconButton(
                       onPressed: _logout,
                       tooltip: 'Keluar',
-                      icon:
-                          const Icon(Icons.logout, color: AppColors.slate400),
+                      icon: const Icon(Icons.logout, color: AppColors.slate400),
                     ),
                   ],
                 ),
@@ -350,10 +350,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           child: ElevatedButton.icon(
                             onPressed: () => showReportDialog(context),
                             icon: const Icon(Icons.picture_as_pdf, size: 16),
-                            label: const Text('Ekspor Laporan Bulanan (PDF/CSV)',
+                            label: const Text(
+                                'Ekspor Laporan Bulanan (PDF/CSV)',
                                 style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold)),
+                                    fontSize: 11, fontWeight: FontWeight.bold)),
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -364,8 +364,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             icon: const Icon(Icons.copy, size: 16),
                             label: const Text('Salin Ringkasan Laporan',
                                 style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold)),
+                                    fontSize: 11, fontWeight: FontWeight.bold)),
                           ),
                         ),
                       ],

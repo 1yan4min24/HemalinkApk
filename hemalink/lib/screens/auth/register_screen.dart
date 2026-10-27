@@ -209,7 +209,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _bloodType,
+                initialValue: _bloodType,
                 decoration: const InputDecoration(labelText: 'Golongan Darah'),
                 items: AppConstants.bloodTypes
                     .map((t) => DropdownMenuItem(value: t, child: Text(t)))
