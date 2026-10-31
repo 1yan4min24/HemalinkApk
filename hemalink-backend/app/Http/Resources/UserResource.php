@@ -20,6 +20,7 @@ class UserResource extends JsonResource
             'weight' => (int) $this->weight,
             'height' => (int) $this->height,
             'role' => $this->role,
+            'must_change_password' => (bool) $this->must_change_password,
         ];
     }
 }

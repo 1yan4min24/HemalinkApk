@@ -3,6 +3,7 @@ import '../../controllers/app_controller.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../admin/admin_dashboard_screen.dart';
+import '../auth/change_password_screen.dart';
 import '../auth/login_screen.dart';
 import '../main/main_sheel.dart';
 
@@ -25,11 +26,13 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(const Duration(milliseconds: 1500));
     if (!mounted) return;
     final c = AppController.instance;
-    final Widget next = c.isAdmin
-        ? const AdminDashboardScreen()
-        : c.isLoggedIn
-            ? const MainShell()
-            : const LoginScreen();
+    final Widget next = !c.isLoggedIn
+        ? const LoginScreen()
+        : c.isAdmin
+            ? const AdminDashboardScreen()
+            : c.mustChangePassword
+                ? const ChangePasswordScreen(forced: true)
+                : const MainShell();
     Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => next));
   }
 

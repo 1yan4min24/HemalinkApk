@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../core/constants/app_constants.dart';
 import '../models/blood_request.dart';
 import '../models/chat_thread.dart';
+import '../models/password_reset.dart';
 import '../models/donor_history.dart';
 import '../models/stock_log.dart';
 import '../models/stock_request.dart';
@@ -12,6 +13,13 @@ import '../models/user_account.dart';
 import '../screens/auth/login_screen.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
+
+/// Hasil pembuatan sandi sementara oleh admin.
+class ResetOutcome {
+  final String? error;
+  final String? tempPassword;
+  const ResetOutcome({this.error, this.tempPassword});
+}
 
 /// Pusat state & logika aplikasi. Semua layar membaca dari sini.
 /// Data sekarang berasal dari backend Laravel (lihat api_service.dart);
@@ -48,6 +56,7 @@ class AppController extends ChangeNotifier {
   List<DonorHistory> _histories = [];
   List<StockRequest> _stockRequests = []; // user: milik sendiri, admin: semua
   List<StockLog> _stockLogs = [];
+  List<PasswordReset> _resets = []; // khusus admin
   Map<String, dynamic> _stats = {};
   final Map<String, int> stock = {
     for (final t in AppConstants.bloodTypes) t: 0
@@ -56,6 +65,9 @@ class AppController extends ChangeNotifier {
 
   UserAccount? currentUser;
   bool isAdmin = false;
+
+  /// true setelah admin membuat sandi sementara: pengguna wajib menggantinya.
+  bool mustChangePassword = false;
   bool get isLoggedIn => currentUser != null;
 
   final Map<String, String> _sig = {}; // tanda data terakhir, untuk mendeteksi perubahan
@@ -124,6 +136,7 @@ class AppController extends ChangeNotifier {
       height: (u['height'] as num?)?.toInt() ?? 0,
     );
     isAdmin = u['role'] == 'admin';
+    mustChangePassword = u['must_change_password'] == true;
   }
 
   Future<void> _startSession(Map<String, dynamic> data) async {
@@ -145,6 +158,7 @@ class AppController extends ChangeNotifier {
     _histories = [];
     _stockRequests = [];
     _stockLogs = [];
+    _resets = [];
     _stats = {};
     for (final t in AppConstants.bloodTypes) {
       stock[t] = 0;
@@ -159,6 +173,7 @@ class AppController extends ChangeNotifier {
     _api.token = null;
     currentUser = null;
     isAdmin = false;
+    mustChangePassword = false;
     _resetData();
     notifyListeners();
     await _store.remove('auth_token');
@@ -222,6 +237,43 @@ class AppController extends ChangeNotifier {
     _loggingOut = false;
   }
 
+  /// Pengguna yang lupa sandi mengirim username + nomor HP ke admin.
+  /// Mengembalikan pesan error (mis. koneksi), atau null jika terkirim.
+  Future<String?> forgotPassword(String username, String phone) => _run(
+      () => _api.forgotPassword(username.trim().toLowerCase(), phone.trim()));
+
+  /// Ganti sandi (juga untuk mengganti sandi sementara dari admin).
+  Future<String?> changePassword(String current, String newPassword) =>
+      _run(() async {
+        final m = await _api.changePassword(current, newPassword);
+        final u = (m['user'] as Map).cast<String, dynamic>();
+        await _store.writeMap('pengguna', u);
+        _applyUser(u);
+        notifyListeners();
+      });
+
+  // ---------- reset sandi (admin) ----------
+  /// Permintaan yang menunggu (terlama dulu) lalu riwayat terbaru.
+  List<PasswordReset> get passwordResets => List.unmodifiable(_resets);
+  List<PasswordReset> get pendingPasswordResets =>
+      _resets.where((r) => r.isPending).toList();
+
+  /// Admin membuat sandi sementara; sandi hanya tersedia sekali di hasil ini.
+  Future<ResetOutcome> approvePasswordReset(String id) async {
+    try {
+      final m = await _api.approvePasswordReset(id);
+      await _loadResets();
+      return ResetOutcome(tempPassword: m['tempPassword'] as String);
+    } catch (e) {
+      return ResetOutcome(error: _msg(e));
+    }
+  }
+
+  Future<void> rejectPasswordReset(String id) => _runToast(() async {
+        await _api.rejectPasswordReset(id);
+        await _loadResets();
+      });
+
   Future<void> updateProfile({
     required String name,
     required String phone,
@@ -254,6 +306,7 @@ class AppController extends ChangeNotifier {
       _loadStockRequests(),
       if (isAdmin) _loadStockLogs(),
       if (isAdmin) _loadStats(),
+      if (isAdmin) _loadResets(),
       if (!isAdmin) _loadThreads(),
       if (!isAdmin) _loadHistories(),
     ]);
@@ -293,6 +346,13 @@ class AppController extends ChangeNotifier {
         final raw = await _api.stockLogs();
         if (!_changed('stockLogs', raw)) return;
         _stockLogs = raw.map(StockLog.fromJson).toList();
+        notifyListeners();
+      });
+
+  Future<void> _loadResets() => _quiet(() async {
+        final raw = await _api.adminPasswordResets();
+        if (!_changed('resets', raw)) return;
+        _resets = raw.map(PasswordReset.fromJson).toList();
         notifyListeners();
       });
 
@@ -339,7 +399,7 @@ class AppController extends ChangeNotifier {
     try {
       _tick++;
       if (isAdmin) {
-        await Future.wait([_loadStockRequests(), _loadStock()]);
+        await Future.wait([_loadStockRequests(), _loadStock(), _loadResets()]);
       } else {
         await Future.wait([_loadThreads(), _loadStockRequests()]);
       }
@@ -558,6 +618,19 @@ class AppController extends ChangeNotifier {
     } catch (e) {
       _toast(_msg(e));
       return null;
+    }
+  }
+
+  /// Hapus percakapan hanya untuk saya. Item langsung hilang dari daftar
+  /// (dibutuhkan oleh Dismissible); bila server gagal, daftar dimuat ulang.
+  Future<void> deleteThread(String id) async {
+    _threads.removeWhere((t) => t.id == id);
+    _sig.remove('threads');
+    notifyListeners();
+    final err = await _run(() => _api.deleteChatThread(id));
+    if (err != null) {
+      _toast(err);
+      await _loadThreads();
     }
   }
 

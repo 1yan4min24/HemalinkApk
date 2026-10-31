@@ -117,6 +117,27 @@ class ApiService {
 
   Future<void> logout() => _call('POST', '/logout');
 
+  // ---------- lupa & ganti sandi ----------
+  /// Publik. Server selalu menjawab sama (tidak membocorkan username terdaftar).
+  Future<void> forgotPassword(String username, String phone) => _call(
+      'POST', '/forgot-password',
+      body: {'username': username, 'phone': phone}, auth: false);
+
+  Future<Map<String, dynamic>> changePassword(
+          String current, String newPassword) async =>
+      _map(await _call('POST', '/change-password',
+          body: {'current_password': current, 'password': newPassword}));
+
+  Future<List<Map<String, dynamic>>> adminPasswordResets() async =>
+      _list(await _call('GET', '/admin/password-resets'));
+
+  /// Mengembalikan {request, tempPassword}; sandi sementara hanya tampil sekali.
+  Future<Map<String, dynamic>> approvePasswordReset(String id) async =>
+      _map(await _call('POST', '/admin/password-resets/$id/approve'));
+
+  Future<void> rejectPasswordReset(String id) =>
+      _call('POST', '/admin/password-resets/$id/reject');
+
   Future<Map<String, dynamic>> me() async => _map(await _call('GET', '/me'));
 
   Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> body) async =>
@@ -201,6 +222,10 @@ class ApiService {
   Future<Map<String, dynamic>> startChat(String requestId) async =>
       _map(await _call('POST', '/chat-threads',
           body: {'request_id': int.tryParse(requestId) ?? requestId}));
+
+  /// Hapus percakapan hanya untuk saya (lawan chat tetap melihatnya).
+  Future<void> deleteChatThread(String threadId) =>
+      _call('DELETE', '/chat-threads/$threadId');
 
   Future<Map<String, dynamic>> sendMessage(
           String threadId, String text) async =>

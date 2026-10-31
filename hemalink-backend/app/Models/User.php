@@ -26,6 +26,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'weight' => 'integer',
             'height' => 'integer',
+            'must_change_password' => 'boolean',
         ];
     }
 

@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\BloodRequestController;
 use App\Http\Controllers\Api\CariPendonorController;
 use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\DonorHistoryController;
+use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\StatsController;
 use App\Http\Controllers\Api\StockController;
 use App\Http\Controllers\Api\StockRequestController;
@@ -15,12 +16,14 @@ Route::get('/ping', fn () => response()->json(['status' => 'ok', 'app' => 'HemaL
 
 Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::post('/forgot-password', [PasswordResetController::class, 'forgot'])->middleware('throttle:5,1');
 
 Route::middleware('auth:sanctum')->group(function () {
     // Akun
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::put('/profile', [AuthController::class, 'updateProfile']);
+    Route::post('/change-password', [AuthController::class, 'changePassword'])->middleware('throttle:10,1');
 
     // Stok (baca)
     Route::get('/stock', [StockController::class, 'show']);
@@ -39,6 +42,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/chat-threads', [ChatController::class, 'index']);
     Route::post('/chat-threads', [ChatController::class, 'store']);
     Route::get('/chat-threads/{chatThread}', [ChatController::class, 'show']);
+    Route::delete('/chat-threads/{chatThread}', [ChatController::class, 'destroy']);
     Route::post('/chat-threads/{chatThread}/messages', [ChatController::class, 'sendMessage']);
 
     // Riwayat donor
@@ -52,6 +56,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Khusus admin
     Route::middleware(EnsureAdmin::class)->prefix('admin')->group(function () {
         Route::get('/stats', [StatsController::class, 'index']);
+        Route::get('/password-resets', [PasswordResetController::class, 'index']);
+        Route::post('/password-resets/{passwordReset}/approve', [PasswordResetController::class, 'approve']);
+        Route::post('/password-resets/{passwordReset}/reject', [PasswordResetController::class, 'reject']);
         Route::put('/stock', [StockController::class, 'update']);
         Route::get('/stock-logs', [StockController::class, 'logs']);
         Route::get('/stock-requests', [StockRequestController::class, 'all']);

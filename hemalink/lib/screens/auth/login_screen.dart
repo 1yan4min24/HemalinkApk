@@ -4,6 +4,8 @@ import '../../core/theme/app_colors.dart';
 import '../../controllers/app_controller.dart';
 import '../admin/admin_dashboard_screen.dart';
 import '../main/main_sheel.dart';
+import 'change_password_screen.dart';
+import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -45,12 +47,15 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    final c = AppController.instance;
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => AppController.instance.isAdmin
+        builder: (_) => c.isAdmin
             ? const AdminDashboardScreen()
-            : const MainShell(),
+            : c.mustChangePassword
+                ? const ChangePasswordScreen(forced: true)
+                : const MainShell(),
       ),
     );
   }
@@ -118,7 +123,23 @@ class _LoginScreenState extends State<LoginScreen> {
                     validator: (v) =>
                         (v == null || v.isEmpty) ? 'Wajib diisi' : null,
                   ),
-                  const SizedBox(height: 18),
+                  if (!_asAdmin)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const ForgotPasswordScreen()),
+                        ),
+                        child: const Text('Lupa sandi?',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.red,
+                                fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  SizedBox(height: _asAdmin ? 18 : 4),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(

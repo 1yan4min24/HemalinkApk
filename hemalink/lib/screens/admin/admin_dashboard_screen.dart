@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/utils/format.dart';
 import '../../models/stock_request.dart';
 import '../../widgets/section_card.dart';
+import 'admin_password_resets_screen.dart';
 import 'admin_requests_screen.dart';
 import 'report_dialog.dart';
 import 'stock_history_screen.dart';
@@ -355,6 +356,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   _stockCard(),
                   const SizedBox(height: 12),
                   _stockRequestCard(),
+                  const SizedBox(height: 12),
+                  SectionCard(
+                    title: 'Akun Pengguna',
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const AdminPasswordResetsScreen()),
+                        ),
+                        icon: const Icon(Icons.lock_reset, size: 16),
+                        label: Text(
+                            _c.pendingPasswordResets.isEmpty
+                                ? 'Permintaan Reset Sandi'
+                                : 'Permintaan Reset Sandi (${_c.pendingPasswordResets.length} menunggu)',
+                            style: const TextStyle(
+                                fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   SectionCard(
                     title: 'Laporan',

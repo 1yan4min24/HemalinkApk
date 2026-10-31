@@ -79,6 +79,34 @@ class AuthController extends Controller
         return new UserResource($request->user());
     }
 
+    /** Ganti sandi (juga dipakai setelah sandi sementara dari admin). */
+    public function changePassword(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'current_password' => 'required|string',
+            'password' => 'required|string|min:6|max:100',
+        ]);
+
+        $user = $request->user();
+
+        if (!Hash::check($data['current_password'], $user->password)) {
+            return response()->json(['message' => 'Sandi lama salah.'], 422);
+        }
+        if ($data['password'] === $data['current_password']) {
+            return response()->json(['message' => 'Sandi baru harus berbeda dari sandi lama.'], 422);
+        }
+
+        $user->password = $data['password'];
+        $user->must_change_password = false;
+        $user->save();
+
+        // Perangkat lain harus masuk ulang; perangkat ini tetap login.
+        $current = $request->user()->currentAccessToken();
+        $user->tokens()->where('id', '!=', $current->id)->delete();
+
+        return response()->json(['user' => new UserResource($user)]);
+    }
+
     public function updateProfile(Request $request): UserResource
     {
         $data = $request->validate([

@@ -9,6 +9,27 @@ import 'chat_detail_screen.dart';
 class ChatListScreen extends StatelessWidget {
   const ChatListScreen({super.key});
 
+  Future<bool> _confirmDelete(BuildContext context, String name) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus percakapan?'),
+        content: Text(
+            'Percakapan dengan $name akan dihapus dari daftar Anda. '
+            '$name tetap dapat melihatnya.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Batal')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Hapus')),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = AppController.instance;
@@ -47,7 +68,7 @@ class ChatListScreen extends StatelessWidget {
                       'Buka tab Donor lalu tekan "Mulai Komunikasi" pada permohonan untuk menghubungi pemohon.',
                 );
               }
-              return Container(
+              return Material(
                 color: Colors.white,
                 child: ListView.separated(
                   itemCount: threads.length,
@@ -55,7 +76,7 @@ class ChatListScreen extends StatelessWidget {
                   itemBuilder: (_, i) {
                     final t = threads[i];
                     final last = t.messages.isEmpty ? null : t.messages.last;
-                    return ListTile(
+                    final tile = ListTile(
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 14, vertical: 4),
                       leading: BloodBadge(label: t.bloodType, size: 44),
@@ -87,6 +108,27 @@ class ChatListScreen extends StatelessWidget {
                         MaterialPageRoute(
                             builder: (_) => ChatDetailScreen(threadId: t.id)),
                       ),
+                      onLongPress: () async {
+                        if (await _confirmDelete(context, t.otherName(me.id))) {
+                          c.deleteThread(t.id);
+                        }
+                      },
+                    );
+                    // Geser ke kiri atau tekan lama untuk menghapus.
+                    return Dismissible(
+                      key: ValueKey('thread-${t.id}'),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        color: AppColors.red,
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 20),
+                        child: const Icon(Icons.delete_outline,
+                            color: Colors.white),
+                      ),
+                      confirmDismiss: (_) =>
+                          _confirmDelete(context, t.otherName(me.id)),
+                      onDismissed: (_) => c.deleteThread(t.id),
+                      child: tile,
                     );
                   },
                 ),

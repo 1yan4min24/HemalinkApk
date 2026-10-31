@@ -4,6 +4,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/format.dart';
 import '../../widgets/section_card.dart';
+import '../auth/change_password_screen.dart';
 import '../auth/login_screen.dart';
 import 'add_history_dialog.dart';
 import 'edit_profile_screen.dart';
@@ -237,6 +238,19 @@ class ProfileScreen extends StatelessWidget {
                             ),
                     ),
                     const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const ChangePasswordScreen()),
+                        ),
+                        icon: const Icon(Icons.lock_outline, size: 16),
+                        label: const Text('Ubah Sandi'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
